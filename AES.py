@@ -303,50 +303,50 @@ def decrypt(ciphered_hex_array, hex_round0_key_array):
 AES_modulus = BitVector(bitstring='100011011')
 # key_schedule_time = 0.0
 
-plaintext = input("Enter Plaintext: ")
-round0_key = input("Enter Round0 key: ")
-
-hex_plaintext_array = convert_ascii_to_hex_array(plaintext)
-hex_round0_key_array = convert_ascii_to_hex_array(round0_key)
-
-print("Key:")
-print(f"In ASCII: {round0_key}")
-print("In HEX: ", end='')
-print_hex_array(hex_round0_key_array)
-print()
-
-print("Plain Text:")
-print(f"In ASCII: {plaintext}")
-print("In HEX: ", end='')
-print_hex_array(hex_plaintext_array)
-print()
-
-encryption_start_time = time.time()
-ciphered_hex_array, key_schedule_time = encrypt(hex_plaintext_array, hex_round0_key_array)
-encryption_time = (time.time() - encryption_start_time) * 1000
-ciphered_ascii_string = convert_hex_array_to_ascii(ciphered_hex_array)
-
-print("Ciphered Text:")
-print("In HEX: ", end='')
-print_hex_array(ciphered_hex_array)
-print(f"In ASCII: {ciphered_ascii_string}")
-print()
-
-decryption_start_time = time.time()
-deciphered_hex_array = decrypt(ciphered_hex_array, hex_round0_key_array)
-decryption_time = (time.time() - decryption_start_time) * 1000
-deciphered_ascii_string = convert_hex_array_to_ascii(deciphered_hex_array)
-
-print("Deciphered Text:")
-print("In HEX: ", end='')
-print_hex_array(deciphered_hex_array)
-print(f"In ASCII: {deciphered_ascii_string}")
-print()
-
-print("Execution Time Details:")
-print(f"Key Schedule Time: {key_schedule_time} ms")
-print(f"Encryption Time: {encryption_time} ms")
-print(f"Decryption Time: {decryption_time} ms")
+# plaintext = input("Enter Plaintext: ")
+# round0_key = input("Enter Round0 key: ")
+#
+# hex_plaintext_array = convert_ascii_to_hex_array(plaintext)
+# hex_round0_key_array = convert_ascii_to_hex_array(round0_key)
+#
+# print("Key:")
+# print(f"In ASCII: {round0_key}")
+# print("In HEX: ", end='')
+# print_hex_array(hex_round0_key_array)
+# print()
+#
+# print("Plain Text:")
+# print(f"In ASCII: {plaintext}")
+# print("In HEX: ", end='')
+# print_hex_array(hex_plaintext_array)
+# print()
+#
+# encryption_start_time = time.time()
+# ciphered_hex_array, key_schedule_time = encrypt(hex_plaintext_array, hex_round0_key_array)
+# encryption_time = (time.time() - encryption_start_time) * 1000
+# ciphered_ascii_string = convert_hex_array_to_ascii(ciphered_hex_array)
+#
+# print("Ciphered Text:")
+# print("In HEX: ", end='')
+# print_hex_array(ciphered_hex_array)
+# print(f"In ASCII: {ciphered_ascii_string}")
+# print()
+#
+# decryption_start_time = time.time()
+# deciphered_hex_array = decrypt(ciphered_hex_array, hex_round0_key_array)
+# decryption_time = (time.time() - decryption_start_time) * 1000
+# deciphered_ascii_string = convert_hex_array_to_ascii(deciphered_hex_array)
+#
+# print("Deciphered Text:")
+# print("In HEX: ", end='')
+# print_hex_array(deciphered_hex_array)
+# print(f"In ASCII: {deciphered_ascii_string}")
+# print()
+#
+# print("Execution Time Details:")
+# print(f"Key Schedule Time: {key_schedule_time} ms")
+# print(f"Encryption Time: {encryption_time} ms")
+# print(f"Decryption Time: {decryption_time} ms")
 
 # for i in range(0, 4):
 #     for j in range(0, 4):
