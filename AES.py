@@ -9,6 +9,7 @@ Original file is located at
 
 from BitVector import *
 import time
+import random
 
 Sbox = (
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -77,31 +78,35 @@ round_constant = [
 ]
 
 
-def convert_ascii_to_hex_array(plaintext):
+def convert_ascii_to_hex_array(plaintext, padding = False):
     hex_plaintext = plaintext.encode('utf-8').hex()
     hex_array = []
     for i in range(0, len(hex_plaintext), 2):
         hex_array.append(hex_plaintext[i:i+2])
 
+    if padding:
+        padding_length = (16 - len(hex_array) % 16) % 16
+        if padding_length == 0:
+            padding_length = 16
+
+        for i in range(0, padding_length):
+            hex_array.append(format(padding_length, '02x'))
+
     return hex_array
 
-def convert_hex_array_to_ascii(hex_array):
+def convert_hex_array_to_ascii(hex_array, padding = False):
     ascii_string = ""
-    # ascii_result = ''.join([bytes.fromhex(hex_string).decode('ascii') for hex_string in hex_array])
     for i in range(0, len(hex_array)):
         ascii_string += chr(int(hex_array[i], 16))
+
+    if padding:
+        padding_length = int(deciphered_hex_array[len(deciphered_hex_array) - 1], 16)
+        ascii_string = ascii_string[:-padding_length]
+
     return ascii_string
 
 def convert_hex_array_to_bitvector(hex_value_array):
     bit_vector1 = []
-    # for i in range(0, 8, 2):
-    #     bit_vector_row = []
-    #     for j in range(i, len(hex_value), 8):
-    #         hex_pair = hex_value[j:j + 2]
-    #         bit_vector = BitVector(hexstring=hex_pair)
-    #         bit_vector_row.append(bit_vector)
-    #
-    #     bit_vector1.append(bit_vector_row)
 
     for i in range(0, 4):
         bit_vector_row = []
@@ -124,7 +129,6 @@ def convert_bitvector_to_hex_array(bit_vector1):
 
 def add_round_key(bit_vector_plaintext, bit_vector_round_key):
 
-    # print_bitvector(bit_vector_round_key)
     for i in range(0, 4):
         for j in range(0, 4):
             bit_vector_plaintext[i][j] ^= bit_vector_round_key[i][j]
@@ -230,34 +234,39 @@ def calculate_round_keys(bit_vector_round_key):
 
     return round_keys
 
-def encrypt(hex_plaintext_array, hex_round0_key_array):
+def encrypt(hex_plaintext_array, hex_round0_key_array, initial_bit_vector):
 
-    bit_vector_plaintext = convert_hex_array_to_bitvector(hex_plaintext_array)
-    bit_vector_round_key = convert_hex_array_to_bitvector(hex_round0_key_array)
+    ciphered_hex_array_final = []
+    for m in range(0, len(hex_plaintext_array), 16):
+        bit_vector_plaintext = convert_hex_array_to_bitvector(hex_plaintext_array[m:m+16])
+        bit_vector_round_key = convert_hex_array_to_bitvector(hex_round0_key_array)
 
-    # bit_vector_plaintext = add_round_key(bit_vector_plaintext, bit_vector_round_key)
-    # for i in range(0, 4):
-    #     round_key_vectors.append(bit_vector_round_key[i])
+        if m != 0:
+            prev_bit_vector = convert_hex_array_to_bitvector(ciphered_hex_array_final[m-16:m])
+            bit_vector_plaintext = add_round_key(bit_vector_plaintext, prev_bit_vector)
+        else:
+            bit_vector_plaintext = add_round_key(bit_vector_plaintext, initial_bit_vector)
 
-    key_schedule_start_time = time.time()
-    round_key_vectors = calculate_round_keys(bit_vector_round_key)
-    key_schedule_time = (time.time() - key_schedule_start_time) * 1000
-    bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[0: 4])
+        key_schedule_start_time = time.time()
+        round_key_vectors = calculate_round_keys(bit_vector_round_key)
+        key_schedule_time = (time.time() - key_schedule_start_time) * 1000
+        bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[0: 4])
 
-    for i in range(1, 10):
+        for i in range(1, 10):
+            bit_vector_plaintext = substitute_bytes(bit_vector_plaintext)
+            bit_vector_plaintext = shift_rows(bit_vector_plaintext)
+            bit_vector_plaintext = mix_columns(bit_vector_plaintext)
+            bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[i * 4: (i + 1) * 4])
+
         bit_vector_plaintext = substitute_bytes(bit_vector_plaintext)
         bit_vector_plaintext = shift_rows(bit_vector_plaintext)
-        bit_vector_plaintext = mix_columns(bit_vector_plaintext)
-        # bit_vector_round_key = calculate_next_round_key(bit_vector_round_key, i)
-        bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[i * 4: (i + 1) * 4])
+        bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[40: 44])
 
-    bit_vector_plaintext = substitute_bytes(bit_vector_plaintext)
-    bit_vector_plaintext = shift_rows(bit_vector_plaintext)
-    # bit_vector_round_key = calculate_next_round_key(bit_vector_round_key, 10)
-    bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[40: 44])
+        ciphered_hex_array = convert_bitvector_to_hex_array(bit_vector_plaintext)
+        for i in range(0, len(ciphered_hex_array)):
+            ciphered_hex_array_final.append(ciphered_hex_array[i])
 
-    ciphered_hex_array = convert_bitvector_to_hex_array(bit_vector_plaintext)
-    return ciphered_hex_array, key_schedule_time
+    return ciphered_hex_array_final, key_schedule_time
 
 def print_bitvector(bit_vector_plaintext):
     for i in range(0, 4):
@@ -272,318 +281,99 @@ def print_hex_array(hex_array):
     print()
 
 
-def decrypt(ciphered_hex_array, hex_round0_key_array):
-    bit_vector_plaintext = convert_hex_array_to_bitvector(ciphered_hex_array)
-    bit_vector_round_key = convert_hex_array_to_bitvector(hex_round0_key_array)
+def decrypt(ciphered_hex_array, hex_round0_key_array, initial_bit_vector):
 
-    # bit_vector_plaintext = add_round_key(bit_vector_plaintext, bit_vector_round_key)
-    # for i in range(0, 4):
-    #     round_key_vectors.append(bit_vector_round_key[i])
+    deciphered_hex_array_final = []
+    for m in range(len(ciphered_hex_array), 0, -16):
+        bit_vector_plaintext = convert_hex_array_to_bitvector(ciphered_hex_array[m-16:m])
+        bit_vector_round_key = convert_hex_array_to_bitvector(hex_round0_key_array)
 
-    round_key_vectors = calculate_round_keys(bit_vector_round_key)
-    bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[40: 44])
+        round_key_vectors = calculate_round_keys(bit_vector_round_key)
+        bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[40: 44])
 
-    for i in range(1, 10):
+        for i in range(1, 10):
+            bit_vector_plaintext = inverse_shift_rows(bit_vector_plaintext)
+            bit_vector_plaintext = inverse_substitute_bytes(bit_vector_plaintext)
+            bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[(10 - i) * 4: (11 - i) * 4])
+            bit_vector_plaintext = inverse_mix_columns(bit_vector_plaintext)
+
         bit_vector_plaintext = inverse_shift_rows(bit_vector_plaintext)
         bit_vector_plaintext = inverse_substitute_bytes(bit_vector_plaintext)
-        bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[(10 -i) * 4: (11 - i) * 4])
-        bit_vector_plaintext = inverse_mix_columns(bit_vector_plaintext)
-        # bit_vector_round_key = calculate_next_round_key(bit_vector_round_key, i)
+        bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[0: 4])
 
-    bit_vector_plaintext = inverse_shift_rows(bit_vector_plaintext)
-    bit_vector_plaintext = inverse_substitute_bytes(bit_vector_plaintext)
-    # bit_vector_round_key = calculate_next_round_key(bit_vector_round_key, 10)
-    bit_vector_plaintext = add_round_key(bit_vector_plaintext, round_key_vectors[0: 4])
+        if m != 16:
+            prev_bit_vector = convert_hex_array_to_bitvector(ciphered_hex_array[m-32:m-16])
+            bit_vector_plaintext = add_round_key(bit_vector_plaintext, prev_bit_vector)
 
-    deciphered_hex_array = convert_bitvector_to_hex_array(bit_vector_plaintext)
-    return deciphered_hex_array
+        else:
+            bit_vector_plaintext = add_round_key(bit_vector_plaintext, initial_bit_vector)
+        deciphered_hex_array = convert_bitvector_to_hex_array(bit_vector_plaintext)
+        for i in range(len(deciphered_hex_array) - 1, -1, -1):
+            deciphered_hex_array_final.append(deciphered_hex_array[i])
 
+    deciphered_hex_array_final.reverse()
+    return deciphered_hex_array_final
+
+
+def generate_initial_bitvector():
+    bitvector = []
+
+    for i in range(4):
+        bit_vector_row = []
+        for j in range(4):
+            hex_value = format(random.randint(0, 255), '02X')
+            bit_vector_row.append(BitVector(hexstring=hex_value))
+
+        bitvector.append(bit_vector_row)
+
+    return bitvector
 
 
 AES_modulus = BitVector(bitstring='100011011')
-# key_schedule_time = 0.0
 
-# plaintext = input("Enter Plaintext: ")
-# round0_key = input("Enter Round0 key: ")
-#
-# hex_plaintext_array = convert_ascii_to_hex_array(plaintext)
-# hex_round0_key_array = convert_ascii_to_hex_array(round0_key)
-#
-# print("Key:")
-# print(f"In ASCII: {round0_key}")
-# print("In HEX: ", end='')
-# print_hex_array(hex_round0_key_array)
-# print()
-#
-# print("Plain Text:")
-# print(f"In ASCII: {plaintext}")
-# print("In HEX: ", end='')
-# print_hex_array(hex_plaintext_array)
-# print()
-#
-# encryption_start_time = time.time()
-# ciphered_hex_array, key_schedule_time = encrypt(hex_plaintext_array, hex_round0_key_array)
-# encryption_time = (time.time() - encryption_start_time) * 1000
-# ciphered_ascii_string = convert_hex_array_to_ascii(ciphered_hex_array)
-#
-# print("Ciphered Text:")
-# print("In HEX: ", end='')
-# print_hex_array(ciphered_hex_array)
-# print(f"In ASCII: {ciphered_ascii_string}")
-# print()
-#
-# decryption_start_time = time.time()
-# deciphered_hex_array = decrypt(ciphered_hex_array, hex_round0_key_array)
-# decryption_time = (time.time() - decryption_start_time) * 1000
-# deciphered_ascii_string = convert_hex_array_to_ascii(deciphered_hex_array)
-#
-# print("Deciphered Text:")
-# print("In HEX: ", end='')
-# print_hex_array(deciphered_hex_array)
-# print(f"In ASCII: {deciphered_ascii_string}")
-# print()
-#
-# print("Execution Time Details:")
-# print(f"Key Schedule Time: {key_schedule_time} ms")
-# print(f"Encryption Time: {encryption_time} ms")
-# print(f"Decryption Time: {decryption_time} ms")
+plaintext = input("Enter Plaintext: ")
+round0_key = input("Enter Round0 key: ")
 
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         print(f"{ciphered_text[i][j].getHexStringFromBitVector()} ", end='')
-#     print()
-# print()
+initial_bitvector = generate_initial_bitvector()
 
+hex_plaintext_array = convert_ascii_to_hex_array(plaintext, True)
+hex_round0_key_array = convert_ascii_to_hex_array(round0_key)
 
-# def decrypt(ciphered_text, round)
-# ciphered_text = add_round_key(ciphered_text, round_key_vectors[40: 44])
-# print("After Adding Round key:")
-# print_bitvector(ciphered_text)
-# ciphered_text = inverse_shift_rows(ciphered_text)
-# print("After Inverse Shift Rows:")
-# print_bitvector(ciphered_text)
-# ciphered_text = inverse_substitute_bytes(ciphered_text)
-# print("After Inverse Substitute Bytes:")
-# print_bitvector(ciphered_text)
-# # bit_vector_round_key = calculate_next_round_key(round10_key, 10)
-# ciphered_text = add_round_key(ciphered_text, round_key_vectors[36: 40])
-# print("After Adding Round key:")
-# print_bitvector(ciphered_text)
-# ciphered_text = inverse_mix_columns(ciphered_text)
-# print("After Inverse Mix Columns:")
-# print_bitvector(ciphered_text)
+print("Key:")
+print(f"In ASCII: {round0_key}")
+print("In HEX: ", end='')
+print_hex_array(hex_round0_key_array)
+print()
 
-# b = BitVector(hexstring="4E")
-# int_val = b.intValue()
-# s = Sbox[int_val]
-# s = BitVector(intVal=s, size=8)
-# print(s.get_bitvector_in_hex())
-#
+print("Plain Text:")
+print(f"In ASCII: {plaintext}")
+print("In HEX: ", end='')
+print_hex_array(hex_plaintext_array)
+print()
 
-# bv1 = BitVector(hexstring="02")
-# bv2 = BitVector(hexstring="63")
-# bv3 = bv1.gf_multiply_modular(bv2, AES_modulus, 8)
-# print(bv3)
+encryption_start_time = time.time()
+ciphered_hex_array, key_schedule_time = encrypt(hex_plaintext_array, hex_round0_key_array, initial_bitvector)
+encryption_time = (time.time() - encryption_start_time) * 1000
+ciphered_ascii_string = convert_hex_array_to_ascii(ciphered_hex_array)
 
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         print(f"{bit_vector_plaintext[i][j].getHexStringFromBitVector()} ", end='')
-#     print()
-# print()
+print("Ciphered Text:")
+print("In HEX: ", end='')
+print_hex_array(ciphered_hex_array)
+print(f"In ASCII: {ciphered_ascii_string}")
+print()
 
-# for i in range(0, 8, 2):
-#     bit_vector_row = []
-#     for j in range(i, len(hex_round0_key), 8):
-#         hex_pair = hex_round0_key[j:j + 2]
-#         bit_vector = BitVector(hexstring=hex_pair)
-#         bit_vector_row.append(bit_vector)
-#
-#     bit_vector_round_key.append(bit_vector_row)
+decryption_start_time = time.time()
+deciphered_hex_array = decrypt(ciphered_hex_array, hex_round0_key_array, initial_bitvector)
+decryption_time = (time.time() - decryption_start_time) * 1000
+deciphered_ascii_string = convert_hex_array_to_ascii(deciphered_hex_array, True)
 
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         print(f"{bit_vector_round_key[i][j].getHexStringFromBitVector()} ", end='')
-#     print()
-# print()
+print("Deciphered Text:")
+print("In HEX: ", end='')
+print_hex_array(deciphered_hex_array)
+print(f"In ASCII: {deciphered_ascii_string}")
+print()
 
-# bv0 = BitVector(intVal=bit_vector_plaintext[0][j], size=8)
-# bv1 = BitVector(intVal=bit_vector_plaintext[1][j], size=8)
-# bv2 = BitVector(intVal=bit_vector_plaintext[2][j], size=8)
-# bv3 = BitVector(intVal=bit_vector_plaintext[3][j], size=8)
-
-# temp = g_result[0]
-# g_result[0] = g_result[1]
-# g_result[1] = g_result[2]
-# g_result[2] = g_result[3]
-# g_result[3] = temp
-
-# for i in range(0, len(hex_round0_key), 2):
-#     hex_pair = hex_round0_key[i:i + 2]
-#     bit_vector = BitVector(hexstring=hex_pair)
-#     bit_vector_round_key.append(bit_vector)
-#
-# # Perform XOR operation for each pair of BitVector instances with the same index
-# bit_vector_plaintext = [v1 ^ v2 for v1, v2 in zip(bit_vector_plaintext, bit_vector_round_key)]
-
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         bit_vector_plaintext[i][j] ^= bit_vector_round_key[i][j]
-
-#
-# # Print the results in hex format
-# # for i, result_bit_vector in enumerate(bit_vector_plaintext):
-# #         hex_string = result_bit_vector.getHexStringFromBitVector()
-# #         print(f"Index {i}: {hex_string}")
-#
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         c = bit_vector_plaintext[i][j].intValue()
-#         bit_vector_plaintext[i][j] = BitVector(intVal=Sbox[c], size=8)
-
-#
-# # for i, result_bit_vector in enumerate(bit_vector_plaintext):
-# #         hex_string = result_bit_vector.getHexStringFromBitVector()
-# #         print(f"Index {i}: {hex_string}")
-#
-# tmp_vector = [bit_vector.deep_copy() for bit_vector in bit_vector_plaintext]
-#
-# for i in range(0, 4):
-#     for j in range(i, 16, 4):
-#         bit_vector_plaintext[j] = tmp_vector[(j + i * 4) % 16]
-#
-# tmp_vector = [bit_vector.deep_copy() for bit_vector in bit_vector_plaintext]
-#
-# l = 0
-# for i in range(0, 4):
-#     for j in range(i, 16, 4):
-#         bit_vector_plaintext[l] = tmp_vector[j]
-#         l += 1
-#
-# for i, result_bit_vector in enumerate(bit_vector_plaintext):
-#         hex_string = result_bit_vector.getHexStringFromBitVector()
-#         print(f"Index {i}: {hex_string}")
-#
-
-# for i in range(0, 4):
-#     bit_vector_plaintext[i] = bit_vector_plaintext[i][i:] + bit_vector_plaintext[i][:i]
-
-# result_matrix = []
-# for i in range(0, 4):
-#     result_matrix_row = []
-#     for j in range(0, 4):
-#         # bv0 = BitVector(intVal=bit_vector_plaintext[0][j], size=8)
-#         # bv1 = BitVector(intVal=bit_vector_plaintext[1][j], size=8)
-#         # bv2 = BitVector(intVal=bit_vector_plaintext[2][j], size=8)
-#         # bv3 = BitVector(intVal=bit_vector_plaintext[3][j], size=8)
-#         tmp1 = Mixer[i][0].gf_multiply_modular(bit_vector_plaintext[0][j], AES_modulus, 8)
-#         tmp1 ^= Mixer[i][1].gf_multiply_modular(bit_vector_plaintext[1][j], AES_modulus, 8)
-#         tmp1 ^= Mixer[i][2].gf_multiply_modular(bit_vector_plaintext[2][j], AES_modulus, 8)
-#         tmp1 ^= Mixer[i][3].gf_multiply_modular(bit_vector_plaintext[3][j], AES_modulus, 8)
-#         result_matrix_row.append(tmp1)
-#
-#     result_matrix.append(result_matrix_row)
-#
-# bit_vector_plaintext = result_matrix
-
-#
-# l = 0
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         bit_vector_plaintext[l] = result_matrix[i][j]
-#         l += 1
-#
-#
-# for i, result_bit_vector in enumerate(bit_vector_plaintext):
-#         hex_string = result_bit_vector.getHexStringFromBitVector()
-#         print(f"Index {i}: {hex_string}")
-#
-# def calculate_g_function(g1_result, round_num):
-#
-#     g_result = [bit_vector.deep_copy() for bit_vector in g1_result]
-#
-#     temp = g_result[0]
-#     g_result[0] = g_result[1]
-#     g_result[1] = g_result[2]
-#     g_result[2] = g_result[3]
-#     g_result[3] = temp
-#
-#     for i in range(0, 4):
-#         c = g_result[i].intValue()
-#         g_result[i] = BitVector(intVal=Sbox[c], size=8)
-#
-#     g_result = [v1 ^ v2 for v1, v2 in zip(round_constant[round_num], g_result)]
-#     return g_result
-
-
-# def calculate_next_round_key(bit_vector_round_key, round_num):
-#     tmp_vector = []
-#     for j in range(0, 4):
-#         tmp_vector_row = []
-#         for i in range(0, 4):
-#             tmp_vector_row.append(bit_vector_round_key[i][j])
-#         tmp_vector.append(tmp_vector_row)
-#
-#     g_result = calculate_g_function(tmp_vector[3], round_num)
-#
-#     tmp_vector[0] = [v1 ^ v2 for v1, v2 in zip(tmp_vector[0], g_result)]
-#     tmp_vector[1] = [v1 ^ v2 for v1, v2 in zip(tmp_vector[1], tmp_vector[0])]
-#     tmp_vector[2] = [v1 ^ v2 for v1, v2 in zip(tmp_vector[2], tmp_vector[1])]
-#     tmp_vector[3] = [v1 ^ v2 for v1, v2 in zip(tmp_vector[3], tmp_vector[2])]
-#
-#     # for i, result_bit_vector in enumerate(g_result):
-#     #     hex_string = result_bit_vector.getHexStringFromBitVector()
-#     #     print(f"Index {i}: {hex_string}")
-#
-#     # for i, result_bit_vector in enumerate(bit_vector_round_key):
-#     #     hex_string = result_bit_vector.getHexStringFromBitVector()
-#     #     print(f"Index {i}: {hex_string}")
-#
-#     result = [[tmp_vector[j][i] for j in range(4)] for i in range(4)]
-#
-#     return result
-#
-#
-# bit_vector_round_key = calculate_next_round_key(bit_vector_round_key, 1)
-
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         bit_vector_plaintext[i][j] ^= bit_vector_round_key[i][j]
-#
-# for i in range(0, 4):
-#     for j in range(0, 4):
-#         print(f"{bit_vector_plaintext[i][j].getHexStringFromBitVector()} ", end='')
-#     print()
-# print()
-# # for i, result_bit_vector in enumerate(bit_vector_round_key):
-# #     hex_string = result_bit_vector.getHexStringFromBitVector()
-# #     print(f"Index {i}: {hex_string}")
-#
-# # g_result = bit_vector2[12:16]
-# #
-# # temp = g_result[0]
-# # g_result[0] = g_result[1]
-# # g_result[1] = g_result[2]
-# # g_result[2] = g_result[3]
-# # g_result[3] = temp
-# #
-# # for i in range(0, 4):
-# #     c = g_result[i].intValue()
-# #     g_result[i] = BitVector(intVal = Sbox[c], size = 8)
-# #
-# # g_result = [v1 ^ v2 for v1, v2 in zip(round_constant[0], g_result)]
-#
-# # g_result = calculate_g_function(bit_vector_round_key[12:16])
-#
-# # bit_vector2[0:4] = [v1 ^ v2 for v1, v2 in zip(bit_vector2[0:4], g_result)]
-# # bit_vector2[4:8] = [v1 ^ v2 for v1, v2 in zip(bit_vector2[0:4], bit_vector2[4:8])]
-# # bit_vector2[8:12] = [v1 ^ v2 for v1, v2 in zip(bit_vector2[8:12], bit_vector2[4:8])]
-# # bit_vector2[12:16] = [v1 ^ v2 for v1, v2 in zip(bit_vector2[12:16], bit_vector2[8:12])]
-#
-# # Print the results in hex format
-# # for i, result_bit_vector in enumerate(g_result):
-# #     hex_string = result_bit_vector.getHexStringFromBitVector()
-# #     print(f"Index {i}: {hex_string}")
-# #
-# # for i, result_bit_vector in enumerate(bit_vector_round_key):
-# #     hex_string = result_bit_vector.getHexStringFromBitVector()
-# #     print(f"Index {i}: {hex_string}")
+print("Execution Time Details:")
+print(f"Key Schedule Time: {key_schedule_time} ms")
+print(f"Encryption Time: {encryption_time} ms")
+print(f"Decryption Time: {decryption_time} ms")
