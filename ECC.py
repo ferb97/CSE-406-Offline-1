@@ -32,26 +32,45 @@ def calculate_public_key(x1, y1, p, a, mul):
     return x3, y3
 
 
-def is_quadratic_residue(y_square, p):
-    # Check if y_square is a quadratic residue modulo p
-    return pow(y_square, (p - 1) // 2, p) == 1
-
-def generate_random_point(a, b, p):
-    while True:
-        x = random.randint(1, p - 1)
-        y_square = (x**3 + a*x + b) % p
-
-        if is_quadratic_residue(y_square, p):
-            y = pow(y_square, (p + 1) // 4, p)  # Calculate the square root modulo p
-            return x, y
+# def is_quadratic_residue(y_square, p):
+#     # Check if y_square is a quadratic residue modulo p
+#     return pow(y_square, (p - 1) // 2, p) == 1
+#
+# def generate_random_point(a, b, p):
+#     while True:
+#         x = random.randint(1, p - 1)
+#         y_square = (x**3 + a*x + b) % p
+#
+#         if is_quadratic_residue(y_square, p):
+#             y = pow(y_square, (p + 1) // 4, p)  # Calculate the square root modulo p
+#             return x, y
 
 
 def generate_g_a_b_p():
-    p = 17
-    a = 2
-    b = 2
-    x1 = 5
-    y1 = 1
+    # generate p
+    key_length = 128
+    p = randprime(2**(key_length-1), 2**key_length - 1)
+
+    # generate a and b
+    while True:
+        a = random.randrange(2, p)
+        b = random.randrange(2, p)
+
+        if((4 * a**3 + 27 * b**2) % p != 0):
+            break
+
+    # generate points
+    while True:
+        x1 = random.randrange(1, p)
+        c = (x1 ** 3 + a * x1 + b) % p
+        if c == 0:
+            y1 = 0
+            break
+
+        y1 = tonelli_sqrt(c, p)
+        if y1 != 0:
+            break
+
     return p, a, b, x1, y1
 
 
@@ -63,11 +82,46 @@ def generate_bob_key(p):
     a1 = random.randrange(2, p)
     return a1
 
-# p = 17
-# a = 2
-# b = 2
-# x1 = 5
-# y1 = 1
+
+def mem_s_i(i, x, p):
+    return pow(x, (p - 1)>>i, p) == 1
+
+def tonelli_sqrt(c, p):
+    # if c % p == 0:
+    #    return 0
+
+    if not mem_s_i(1, c, p):
+        return 0
+
+    q = p - 1
+    ell = 0
+    while q % 2 == 0:
+        ell = ell + 1
+        q = q // 2
+
+    while True:
+        n = random.randrange(1, p)
+        if not mem_s_i(1, n, p):
+            break
+
+    ninv = pow(n, p - 2, p)
+    e = 0
+    for i in range(2, ell + 1):
+        if not mem_s_i(i, pow(ninv, e, p) * c, p):
+            e = e + 2**(i - 1)
+
+    a = pow(pow(ninv, e, p) * c, (q + 1) // 2, p)
+    b = (pow(n, e // 2, p) * a) % p
+    return b
+
+
+p = 17
+a = 2
+b = 2
+x1 = 16
+c = (x1**3 + a * x1 + b) % p
+y1 = tonelli_sqrt(c, p)
+print(y1)
 # mul = 3
 
 # generate prime number
