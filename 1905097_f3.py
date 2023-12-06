@@ -1,6 +1,7 @@
 import socket
-import AES as aes
-import ECC as ecc
+import importlib
+aes = importlib.import_module('1905097_f1')
+ecc = importlib.import_module('1905097_f2')
 
 # Creating Socket
 s = socket.socket()
