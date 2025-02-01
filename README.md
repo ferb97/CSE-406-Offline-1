@@ -1,0 +1,1 @@
+This is the code for implementing a cryptosystem that uses a symmetric key for encryption and decryption. The symmetric key is securely shared by the Elliptic Curve Diffie-Hellman key exchange method.
